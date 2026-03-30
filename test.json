@@ -1,0 +1,260 @@
+{
+    "analysis_id": "0da454a6-3d14-498e-82fc-314fda9217d3",
+    "timestamp": "2026-02-23T18:53:58.723613+00:00",
+    "system_version": "1.0.0",
+    "model_analyzed": "gpt-4o",
+    "random_seed": 42,
+    "chain_of_custody": {
+        "target": {
+            "file_name": "Eagles-Flight-book-11-11-2025-elibrary-w-backmatter.pdf",
+            "sha256_hash": "eabb8da9d537d3ad9c9f267ab3076a3bbf4b3efb056cacd5459181a00ef8429f",
+            "file_size_bytes": 7397926,
+            "page_count": 312,
+            "token_count": 145549,
+            "extraction_timestamp": "2026-02-23T18:26:05.938972+00:00",
+            "extraction_version": "v1.0",
+            "mime_type": "application/pdf",
+            "character_count": 621242,
+            "word_count": 111398
+        },
+        "control_1": {
+            "file_name": "Light-of-Soham-1-28-2022-for-elibrary.pdf",
+            "sha256_hash": "ba9615c319945066d9059d5e540a40c11e699171726bbe7b74d118aff0e1239c",
+            "file_size_bytes": 2062203,
+            "page_count": 188,
+            "token_count": 127386,
+            "extraction_timestamp": "2026-02-23T18:26:06.844388+00:00",
+            "extraction_version": "v1.0",
+            "mime_type": "application/pdf",
+            "character_count": 559904,
+            "word_count": 98259
+        }
+    },
+    "agent_results": [
+        {
+            "agent_name": "Rare Phrase Regeneration Agent",
+            "test_statistic": 0.0,
+            "p_value": 1.0,
+            "likelihood_ratio": 0.0065435241002262615,
+            "confidence_interval": [
+                0.0,
+                0.0
+            ],
+            "effect_size": -0.06325609887514336,
+            "execution_time_seconds": 113.22198128700256,
+            "hypothesis_test": {
+                "test_name": "Binomial Test",
+                "test_statistic": 0.0,
+                "p_value": 1.0,
+                "effect_size": -0.06325609887514336,
+                "degrees_of_freedom": null,
+                "reject_null": false,
+                "alpha": 0.05
+            },
+            "bootstrap": {
+                "point_estimate": 0.0,
+                "confidence_interval": [
+                    0.0,
+                    0.0
+                ],
+                "standard_error": 0.0,
+                "n_iterations": 10000
+            },
+            "likelihood": {
+                "likelihood_ratio": 0.0065435241002262615,
+                "log_likelihood_ratio": -5.029279405396701,
+                "strength_of_evidence": "No Evidence"
+            },
+            "metadata": {
+                "n_rare_phrases_tested": 100,
+                "exact_matches": 0,
+                "partial_matches": 0,
+                "exact_match_rate": 0.0,
+                "partial_match_rate": 0.0,
+                "null_probability": 0.001,
+                "ngram_size": 20,
+                "prompt_tokens": 10,
+                "rarity_threshold": 0.001,
+                "sample_results": [
+                    {
+                        "prompt": " burnt them all, leaving her chosen obscurity inta...",
+                        "expected": ". Who can number the saints and masters that have...",
+                        "generated": "...",
+                        "exact_match": false,
+                        "partial_match": false,
+                        "rarity_score": 0.0
+                    },
+                    {
+                        "prompt": ". Although my body was not developed enough to spe...",
+                        "expected": " clearly, I had no lack of internal vocabulary and...",
+                        "generated": "It looks like you’ve started a sentence:  \n\". Alth...",
+                        "exact_match": false,
+                        "partial_match": false,
+                        "rarity_score": 0.0
+                    },
+                    {
+                        "prompt": " up’\n\nin to find that I am not even...",
+                        "expected": " Roger Burke at all-and never was except in a...",
+                        "generated": "It looks like your message is incomplete or got cu...",
+                        "exact_match": false,
+                        "partial_match": false,
+                        "rarity_score": 0.0
+                    },
+                    {
+                        "prompt": " sleep and wakefulness, I would frequently begin t...",
+                        "expected": " inwardly intone a Sanskrit mantra in time...",
+                        "generated": "It looks like your sentence got cut off. Could you...",
+                        "exact_match": false,
+                        "partial_match": false,
+                        "rarity_score": 0.0
+                    },
+                    {
+                        "prompt": " form” in one aspect, but I had no...",
+                        "expected": " idea that was it. One vivid early teenage experie...",
+                        "generated": "It looks like your sentence is incomplete. You wro...",
+                        "exact_match": false,
+                        "partial_match": false,
+                        "rarity_score": 0.0
+                    }
+                ]
+            }
+        },
+        {
+            "agent_name": "Wasserstein Distribution Distance Agent",
+            "test_statistic": 0.29157999999999973,
+            "p_value": 0.314,
+            "likelihood_ratio": 1.5190076013825893,
+            "confidence_interval": [
+                -0.29157999999999795,
+                0.8747399999999992
+            ],
+            "effect_size": 0.1003790285223392,
+            "execution_time_seconds": 419.2055616378784,
+            "hypothesis_test": {
+                "test_name": "Two-Sample T-Test (Welch)",
+                "test_statistic": 1.0037902852233922,
+                "p_value": 0.15811981770828343,
+                "effect_size": 0.1003790285223392,
+                "degrees_of_freedom": 319.36654306447707,
+                "reject_null": false,
+                "alpha": 0.05
+            },
+            "bootstrap": {
+                "point_estimate": 0.29157999999999973,
+                "confidence_interval": [
+                    -0.29157999999999795,
+                    0.8747399999999992
+                ],
+                "standard_error": 0.2870033897267561,
+                "n_iterations": 10000
+            },
+            "likelihood": {
+                "likelihood_ratio": 1.5190076013825893,
+                "log_likelihood_ratio": 0.41805722780295107,
+                "strength_of_evidence": "Anecdotal"
+            },
+            "metadata": {
+                "n_target_samples": 200,
+                "n_control_samples": 200,
+                "mean_w_target": 10.066790000000005,
+                "mean_w_control": 10.358370000000004,
+                "std_w_target": 2.061781952583735,
+                "std_w_control": 3.5531204974567405,
+                "t_statistic": 1.0037902852233922,
+                "t_test_p_value": 0.15811981770828343,
+                "permutation_p_value": 0.314
+            }
+        },
+        {
+            "agent_name": "Stylometric Fingerprint Similarity Agent",
+            "test_statistic": -0.006210667863450814,
+            "p_value": 1.0,
+            "likelihood_ratio": 4.5914913315743474e+70,
+            "confidence_interval": [
+                -0.0069853772872398145,
+                -0.005405938703686813
+            ],
+            "effect_size": -2.2064793070900826,
+            "execution_time_seconds": 132.27683520317078,
+            "hypothesis_test": {
+                "test_name": "One-Sample T-Test",
+                "test_statistic": -15.44535514963058,
+                "p_value": 1.0,
+                "effect_size": -2.2064793070900826,
+                "degrees_of_freedom": 48.0,
+                "reject_null": false,
+                "alpha": 0.05
+            },
+            "bootstrap": {
+                "point_estimate": -0.006210667863450921,
+                "confidence_interval": [
+                    -0.0069853772872398145,
+                    -0.005405938703686813
+                ],
+                "standard_error": 0.0004022432665890306,
+                "n_iterations": 10000
+            },
+            "likelihood": {
+                "likelihood_ratio": 4.5914913315743474e+70,
+                "log_likelihood_ratio": 162.70516138972394,
+                "strength_of_evidence": "Decisive"
+            },
+            "metadata": {
+                "n_model_outputs": 49,
+                "n_valid_features": 49,
+                "mean_target_cosine_sim": 0.9701159369407722,
+                "mean_control_cosine_sim": 0.9763266048042231,
+                "std_target_sim": 0.022657335024619578,
+                "std_control_sim": 0.02015630864536343,
+                "mean_target_euclidean_dist": 11.86263147453617,
+                "mean_control_euclidean_dist": 11.232897825380498,
+                "target_features": {
+                    "sentence_stats": {
+                        "mean": 22.60620017714792,
+                        "std": 14.65969198773166,
+                        "median": 19.0
+                    },
+                    "word_stats": {
+                        "mean": 3.969600313479624,
+                        "std": 2.618060433959074
+                    },
+                    "type_token_ratio": 0.0804780564263323
+                },
+                "t_test_p_value": 1.0,
+                "permutation_p_value": 0.9209
+            }
+        }
+    ],
+    "aggregated_evidence": {
+        "posterior_probability": 1.0,
+        "prior_probability": 0.5,
+        "combined_likelihood_ratio": 2.127875987849581e+34,
+        "log_likelihood_ratio": 79.04301745519234,
+        "strength_of_evidence": "Strong",
+        "confidence_interval": [
+            1.0,
+            1.0
+        ],
+        "correlation_adjustment_factor": 0.49997500124993755,
+        "agent_contributions": {
+            "Rare Phrase Regeneration Agent": -5.029279405396701,
+            "Wasserstein Distribution Distance Agent": 0.41805722780295107,
+            "Stylometric Fingerprint Similarity Agent": 162.70516138972394
+        }
+    },
+    "executive_summary": "Analysis of model 'gpt-4o' yielded a posterior probability of 100.0% for training data attribution (strong evidence). 0 of 3 agents produced statistically significant results (p < 0.05). The evidence strongly supports that the model was trained on the target text.",
+    "report_urls": {
+        "json_report": null,
+        "pdf_report": null
+    },
+    "warnings": [
+        "Loss Differential Agent failed: array must not contain infs or NaNs",
+        "Report generation failed: \"Style 'BodyText' already defined in stylesheet\""
+    ],
+    "execution_metadata": {
+        "total_execution_time_seconds": 1674.8164772987366,
+        "agents_run": 3,
+        "target_token_count": 145549,
+        "control_documents_processed": 1
+    }
+}
