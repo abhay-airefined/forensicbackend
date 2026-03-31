@@ -3,7 +3,9 @@ from __future__ import annotations
 import asyncio
 import base64
 import hashlib
+import io
 import logging
+import re as _re
 import time
 import uuid
 from datetime import datetime, timezone
@@ -476,7 +478,7 @@ _AILA_IP4_SEARCH_URL = "https://aila-uk-backend-abhay.azurewebsites.net/rag-api/
 _AILA_BLOB_CONN_STR = (
     "DefaultEndpointsProtocol=https;"
     "AccountName=stdatauksouthaila;"
-    
+    "AccountKey=
     "EndpointSuffix=core.windows.net"
 )
 _AILA_EVIDENCE_CONTAINER = "aila-case-evidence"
@@ -1559,6 +1561,375 @@ def generate_memorandum(request: MemorandumRequest) -> MemorandumResponse:
             case_number=case_number,
             aggregate_chart_base64=aggregate_chart_b64,
         )
+
+
+# ── PDF memorandum builder ────────────────────────────────────────────
+
+def _build_memorandum_pdf(
+    markdown_text: str,
+    chart_images: list[tuple[str, bytes]],
+    case_number: str,
+    book_title: str,
+    book_author: str,
+) -> bytes:
+    """Convert an English markdown memorandum and a list of chart PNGs into a
+    single downloadable PDF using ReportLab.
+
+    Parameters
+    ----------
+    markdown_text:
+        The English memorandum in Markdown (as produced by
+        ``_build_fallback_memorandum`` or the AILA backend).
+    chart_images:
+        Ordered list of ``(section_title, png_bytes)`` tuples.  Each chart is
+        rendered on its own page preceded by a title.
+    case_number:
+        Used in the document title metadata.
+    book_title / book_author:
+        Embedded in the PDF metadata.
+
+    Returns
+    -------
+    bytes
+        The finished PDF file content.
+    """
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import cm
+    from reportlab.lib import colors
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_JUSTIFY
+    from reportlab.platypus import (
+        SimpleDocTemplate,
+        Image,
+        PageBreak,
+        Paragraph,
+        Spacer,
+        HRFlowable,
+        Table,
+        TableStyle,
+    )
+    from reportlab.lib.utils import ImageReader
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buf,
+        pagesize=A4,
+        topMargin=2 * cm,
+        bottomMargin=2 * cm,
+        leftMargin=2 * cm,
+        rightMargin=2 * cm,
+        title=f"SFAS Memorandum – {case_number}",
+        author=book_author or "SFAS",
+        subject=f"Forensic analysis of {book_title or 'subject work'}",
+    )
+
+    styles = getSampleStyleSheet()
+    styles.add(ParagraphStyle(
+        "MemoTitle", parent=styles["Title"], fontSize=18, spaceAfter=12,
+        textColor=colors.HexColor("#1a237e"),
+    ))
+    styles.add(ParagraphStyle(
+        "MemoH1", parent=styles["Heading1"], fontSize=14, spaceAfter=8,
+        spaceBefore=16, textColor=colors.HexColor("#283593"),
+    ))
+    styles.add(ParagraphStyle(
+        "MemoH2", parent=styles["Heading2"], fontSize=12, spaceAfter=6,
+        spaceBefore=12, textColor=colors.HexColor("#3949ab"),
+    ))
+    styles.add(ParagraphStyle(
+        "MemoBody", parent=styles["BodyText"], fontSize=10,
+        leading=14, alignment=TA_JUSTIFY, spaceAfter=6,
+    ))
+    styles.add(ParagraphStyle(
+        "MemoBold", parent=styles["BodyText"], fontSize=10,
+        leading=14, alignment=TA_JUSTIFY, spaceAfter=6,
+    ))
+    styles.add(ParagraphStyle(
+        "ChartTitle", parent=styles["Heading2"], fontSize=13,
+        spaceAfter=10, spaceBefore=4, alignment=TA_CENTER,
+        textColor=colors.HexColor("#1a237e"),
+    ))
+    styles.add(ParagraphStyle(
+        "TableCell", parent=styles["BodyText"], fontSize=8,
+        leading=10, spaceAfter=0,
+    ))
+
+    story: list = []
+
+    # ── Helper: convert a single markdown line to a Paragraph ──
+    def _md_line_to_para(line: str):
+        """Best-effort markdown→XML-safe Paragraph conversion."""
+        # Escape XML-sensitive chars first
+        safe = line.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        # Bold **text**
+        safe = _re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", safe)
+        # Italic *text*
+        safe = _re.sub(r"(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)", r"<i>\1</i>", safe)
+        return safe
+
+    # ── Helper: detect and parse a markdown table block ──
+    def _parse_md_table(lines: list[str], start_idx: int) -> tuple[list[list[str]], int]:
+        """Return (rows, end_idx) where rows is a list of cell-lists."""
+        rows: list[list[str]] = []
+        idx = start_idx
+        while idx < len(lines):
+            ln = lines[idx].strip()
+            if not ln.startswith("|"):
+                break
+            # Skip separator rows like |---|---|---|
+            if _re.match(r"^\|[\s:-]+\|$", ln.replace(" ", "").replace("-", "-")):
+                idx += 1
+                continue
+            cells = [c.strip() for c in ln.strip("|").split("|")]
+            rows.append(cells)
+            idx += 1
+        return rows, idx
+
+    # ── Parse the markdown text into flowables ──
+    md_text = markdown_text.replace("<!-- AGGREGATE_CHART_PLACEHOLDER -->", "")
+    md_lines = md_text.split("\n")
+
+    i = 0
+    while i < len(md_lines):
+        line = md_lines[i]
+        stripped = line.strip()
+
+        # Skip empty lines
+        if not stripped:
+            story.append(Spacer(1, 6))
+            i += 1
+            continue
+
+        # Horizontal rule
+        if _re.match(r"^-{3,}$", stripped) or _re.match(r"^\*{3,}$", stripped):
+            story.append(HRFlowable(width="100%", thickness=1, color=colors.grey))
+            story.append(Spacer(1, 6))
+            i += 1
+            continue
+
+        # Headings
+        if stripped.startswith("# "):
+            story.append(Paragraph(_md_line_to_para(stripped[2:]), styles["MemoTitle"]))
+            i += 1
+            continue
+        if stripped.startswith("## "):
+            story.append(Paragraph(_md_line_to_para(stripped[3:]), styles["MemoH1"]))
+            i += 1
+            continue
+        if stripped.startswith("### "):
+            story.append(Paragraph(_md_line_to_para(stripped[4:]), styles["MemoH2"]))
+            i += 1
+            continue
+
+        # Markdown table block
+        if stripped.startswith("|") and "|" in stripped[1:]:
+            rows, end_idx = _parse_md_table(md_lines, i)
+            if rows:
+                # Convert cells to Paragraphs for word-wrap
+                tdata = []
+                for row in rows:
+                    tdata.append([Paragraph(_md_line_to_para(c), styles["TableCell"]) for c in row])
+                ncols = max(len(r) for r in tdata) if tdata else 1
+                col_w = (A4[0] - 4 * cm) / ncols
+                t = Table(tdata, colWidths=[col_w] * ncols, repeatRows=1)
+                t.setStyle(TableStyle([
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e8eaf6")),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#1a237e")),
+                    ("FONTSIZE", (0, 0), (-1, -1), 8),
+                    ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ("TOPPADDING", (0, 0), (-1, -1), 3),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                ]))
+                story.append(Spacer(1, 6))
+                story.append(t)
+                story.append(Spacer(1, 6))
+            i = end_idx
+            continue
+
+        # Bullet points
+        if stripped.startswith("- ") or stripped.startswith("* "):
+            bullet_text = _md_line_to_para(stripped[2:])
+            story.append(Paragraph(f"\u2022 {bullet_text}", styles["MemoBody"]))
+            i += 1
+            continue
+
+        # Numbered list items
+        m = _re.match(r"^(\d+)\.\s+(.*)$", stripped)
+        if m:
+            story.append(Paragraph(f"{m.group(1)}. {_md_line_to_para(m.group(2))}", styles["MemoBody"]))
+            i += 1
+            continue
+
+        # Normal paragraph
+        story.append(Paragraph(_md_line_to_para(stripped), styles["MemoBody"]))
+        i += 1
+
+    # ── Append chart pages ──
+    if chart_images:
+        story.append(PageBreak())
+        story.append(Paragraph("Visualisation Charts", styles["MemoTitle"]))
+        story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor("#1a237e")))
+        story.append(Spacer(1, 12))
+
+        usable_w = A4[0] - 4 * cm
+        usable_h = A4[1] - 6 * cm  # leave room for title + margins
+
+        for idx, (section_title, png_bytes) in enumerate(chart_images):
+            if idx > 0:
+                story.append(PageBreak())
+            story.append(Paragraph(section_title, styles["ChartTitle"]))
+            story.append(Spacer(1, 6))
+            img_buf = io.BytesIO(png_bytes)
+            iw, ih = ImageReader(img_buf).getSize()
+            # Scale to fit page width while preserving aspect ratio
+            ratio = min(usable_w / iw, usable_h / ih)
+            img_buf.seek(0)  # rewind after ImageReader read
+            story.append(Image(img_buf, width=iw * ratio, height=ih * ratio))
+
+    doc.build(story)
+    return buf.getvalue()
+
+
+@app.post("/generate-memorandum/pdf")
+def generate_memorandum_pdf(request: MemorandumRequest) -> Response:
+    """Generate a downloadable PDF of the forensic memorandum with all
+    available visualisation charts embedded.
+
+    Uses the same request body as ``/generate-memorandum``.
+    """
+    import requests as _requests
+
+    book = _get_book_or_404(request.book_id)
+    case_number = request.case_number or f"SFAS-{request.book_id[:8].upper()}"
+
+    # ── Gather stored results ──
+    agent_results = store.get_agent_results(request.book_id, request.model_name)
+    aggregate = store.get_aggregate_result(request.book_id, request.model_name)
+    if not aggregate:
+        raise HTTPException(
+            status_code=400,
+            detail="No aggregate result found. Run /aggregate first before generating the PDF.",
+        )
+
+    metadata = book.metadata if isinstance(book.metadata, dict) else book.metadata
+
+    distribution_evidence = _fetch_aila_distribution_evidence(
+        request.book_title,
+        request.book_author,
+    )
+
+    # ── Build the English memorandum markdown ──
+    evidence_md = _build_forensic_evidence_md(
+        book_id=request.book_id,
+        model_name=request.model_name,
+        book_title=request.book_title,
+        book_author=request.book_author,
+        metadata=metadata,
+        agent_results=agent_results,
+        aggregate=aggregate,
+        distribution_evidence=distribution_evidence,
+    )
+
+    memo_md: str = ""
+    try:
+        _upload_evidence_to_aila(case_number, request.role, evidence_md)
+        memo_payload = {
+            "caseNumber": case_number,
+            "firmShortName": request.firm_name,
+            "role": request.role,
+            "toneStyle": request.tone_style,
+            "lengthStyle": request.length_style,
+        }
+        resp = _requests.post(
+            f"{_AILA_BASE}/rag-api/generate_memorandum",
+            json=memo_payload,
+            timeout=180,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        memo_md = data.get("english_markdown_memorandum", "")
+    except Exception as exc:
+        logger.warning("AILA unavailable for PDF (%s) — using local fallback", exc)
+
+    if not memo_md:
+        memo_md = _build_fallback_memorandum(
+            case_number=case_number,
+            book_title=request.book_title,
+            book_author=request.book_author,
+            model_name=request.model_name,
+            metadata=metadata,
+            agent_results=agent_results,
+            aggregate=aggregate,
+            role=request.role,
+            tone_style=request.tone_style,
+            distribution_evidence=distribution_evidence,
+        )
+
+    # ── Collect all chart images (skip gracefully if data missing) ──
+    chart_images: list[tuple[str, bytes]] = []
+
+    # Book-level charts
+    _chart_specs_book = [
+        ("Rolling & Segment Entropy", lambda: chart_rolling_entropy(book.datasets)),
+        ("Word Frequency Distribution", lambda: chart_word_frequency(book.datasets)),
+        ("Stylometry Heatmap", lambda: chart_stylometry_heatmap(book.datasets)),
+        ("Graph Metrics", lambda: chart_graph_metrics(book.graphs)),
+    ]
+    for title, fn in _chart_specs_book:
+        try:
+            chart_images.append((title, fn()))
+        except Exception as exc:
+            logger.warning("Skipping chart '%s' for PDF: %s", title, exc)
+
+    # Per-agent charts
+    _agent_chart_specs = [
+        ("rare_phrase", "Rare Phrase Analysis", chart_rare_phrase),
+        ("entropy", "Entropy Analysis", chart_entropy),
+        ("distribution", "Distribution Analysis", chart_distribution),
+        ("stylometric", "Stylometric Analysis", chart_stylometric),
+        ("semantic", "Semantic Analysis", chart_semantic),
+    ]
+    for agent_key, title, chart_fn in _agent_chart_specs:
+        result = store.get_single_agent_result(request.book_id, request.model_name, agent_key)
+        if result is None:
+            logger.warning("Agent '%s' result not found — skipping chart in PDF", agent_key)
+            continue
+        try:
+            chart_images.append((title, chart_fn(result)))
+        except Exception as exc:
+            logger.warning("Skipping chart '%s' for PDF: %s", title, exc)
+
+    # Aggregate chart
+    try:
+        chart_images.append(("Aggregate Bayesian Fusion", chart_aggregate(aggregate)))
+    except Exception as exc:
+        logger.warning("Skipping aggregate chart for PDF: %s", exc)
+
+    # Full dashboard
+    try:
+        chart_images.append((
+            "Full Analysis Dashboard",
+            chart_full_dashboard(book.datasets, book.graphs, agent_results, aggregate),
+        ))
+    except Exception as exc:
+        logger.warning("Skipping full dashboard chart for PDF: %s", exc)
+
+    # ── Build the PDF ──
+    pdf_bytes = _build_memorandum_pdf(
+        markdown_text=memo_md,
+        chart_images=chart_images,
+        case_number=case_number,
+        book_title=request.book_title or "Subject Work",
+        book_author=request.book_author or "Unknown",
+    )
+
+    safe_case = case_number.replace("/", "-")
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="memorandum_{safe_case}.pdf"'},
+    )
 
 
 # ── Visualization endpoints ─────────────────────────────────────────

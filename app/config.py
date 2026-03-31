@@ -29,13 +29,13 @@ class Settings(BaseSettings):
     simulation_mode: bool = False
 
     # ── Azure OpenAI ──────────────────────────────────────────────
-    azure_openai_endpoint: str = "https://oai-prod-uksouth-aila.openai.azure.com/"
-    azure_openai_api_key: str =
+    azure_openai_endpoint: str =
+    azure_openai_api_key: str = 
     azure_openai_api_version: str = "2025-01-01-preview"
     azure_openai_deployment: str = "gpt-4.1-test"  # default deployment name
 
     # ── Azure Storage (Blob + Table) ─────────────────────────────
-    azure_storage_connection_string: str = 
+    azure_storage_connection_string: str =
     azure_blob_container: str = "sfas-data"
     azure_table_books: str = "sfasbooks"
     azure_table_results: str = "sfasresults"
