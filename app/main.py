@@ -473,16 +473,6 @@ def download_agent_results(book_id: str, model_name: str) -> list[dict]:
 
 # ── Memorandum generation (via AILA backend) ────────────────────────
 
-_AILA_BASE = "http://localhost:8000"
-_AILA_IP4_SEARCH_URL = "https://aila-uk-backend-abhay.azurewebsites.net/rag-api/aila_ip_4/search"
-_AILA_BLOB_CONN_STR = (
-    "DefaultEndpointsProtocol=https;"
-    "AccountName=stdatauksouthaila;"
-    "AccountKey=
-    "EndpointSuffix=core.windows.net"
-)
-_AILA_EVIDENCE_CONTAINER = "aila-case-evidence"
-
 
 def _fetch_aila_distribution_evidence(title: str, author: str) -> dict | None:
     """Fetch external copyright availability and risk signals from AILA IP-4 search."""
@@ -495,7 +485,7 @@ def _fetch_aila_distribution_evidence(title: str, author: str) -> dict | None:
 
     try:
         resp = _requests.get(
-            _AILA_IP4_SEARCH_URL,
+            settings.aila_ip4_search_url,
             params={"title": clean_title, "author": clean_author},
             timeout=45,
         )
@@ -608,15 +598,15 @@ def _upload_evidence_to_aila(case_number: str, role: str, evidence_md: str) -> N
     safe_case = case_number.replace("/", "-")
     blob_path = f"{safe_case}/{role}_client/forensic_evidence.md"
 
-    blob_service = BlobServiceClient.from_connection_string(_AILA_BLOB_CONN_STR)
-    container = blob_service.get_container_client(_AILA_EVIDENCE_CONTAINER)
+    blob_service = BlobServiceClient.from_connection_string(settings.aila_blob_connection_string)
+    container = blob_service.get_container_client(settings.aila_evidence_container)
     container.upload_blob(
         name=blob_path,
         data=evidence_md.encode("utf-8"),
         overwrite=True,
         content_settings=ContentSettings(content_type="text/markdown; charset=utf-8"),
     )
-    logger.info("Uploaded forensic evidence to AILA blob: %s/%s", _AILA_EVIDENCE_CONTAINER, blob_path)
+    logger.info("Uploaded forensic evidence to AILA blob: %s/%s", settings.aila_evidence_container, blob_path)
 
 
 def _build_forensic_evidence_md(
@@ -1500,7 +1490,7 @@ def generate_memorandum(request: MemorandumRequest) -> MemorandumResponse:
         logger.info("Uploading forensic evidence to AILA blob storage (case %s)", case_number)
         _upload_evidence_to_aila(case_number, request.role, evidence_md)
 
-        logger.info("Calling AILA backend at %s for memorandum generation", _AILA_BASE)
+        logger.info("Calling AILA backend at %s for memorandum generation", settings.aila_base_url)
         memo_payload = {
             "caseNumber": case_number,
             "firmShortName": request.firm_name,
@@ -1509,7 +1499,7 @@ def generate_memorandum(request: MemorandumRequest) -> MemorandumResponse:
             "lengthStyle": request.length_style,
         }
         resp = _requests.post(
-            f"{_AILA_BASE}/rag-api/generate_memorandum",
+            f"{settings.aila_base_url}/rag-api/generate_memorandum",
             json=memo_payload,
             timeout=180,
         )
@@ -1842,7 +1832,7 @@ def generate_memorandum_pdf(request: MemorandumRequest) -> Response:
             "lengthStyle": request.length_style,
         }
         resp = _requests.post(
-            f"{_AILA_BASE}/rag-api/generate_memorandum",
+            f"{settings.aila_base_url}/rag-api/generate_memorandum",
             json=memo_payload,
             timeout=180,
         )
